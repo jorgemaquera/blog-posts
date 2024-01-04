@@ -1,0 +1,183 @@
+---
+title: "Configurar multiples llaves ssh en Mac"
+date: "2024-01-03"
+tags: ["story", "git", "guide", "spanish"]
+---
+
+Cuando utilizo mi ordenador personal para el trabajo mi preocupación es terminar convirtiendo lo en el ordenador del trabajo para uso personal. Por esta razón trato de configurar las herramientas de forma que estas no estén esparcidas por toda la memoria y mis credenciales personales estén como principales.
+
+Lo más importante para mi tanto en proyectos personales como trabajo son mis repositorios. Ahí es donde trabajo la mayoría de tiempo en el ordenador. Los repositorios del trabajo y personales se encuentran en diferentes cuentas por es necesario gestionar multiples accesos que en este caso son por ssh. Esta tarea de configuración puede ser un dolor de cabeza por lo que en este post compartiré mi forma de configurar lo.
+
+La configuración de ssh consiste en los siguientes pasos:
+
+- Generar las llaves
+- Configurar el agente ssh
+- Configurar el git config
+- Agregar las llaves a github
+
+### Generar las llaves
+
+Para generar las llaves inicialmente debemos abrir la terminal ahí pondremos el siguiente comando:
+
+```
+ssh-keygen -t ed25519 -C "your_email@example.com"
+```
+
+Reemplaza el texto con tu correo personal o de trabajo que utilizara para etiquetar la llave. Esto tendrá la siguiente salida:
+
+```
+Enter a file in which to save the key (/Users/YOU/.ssh/id_ALGORITHM): [Press enter]
+```
+
+Este mensaje requiere que ingreses un la ubicación y nombre para la llave que se creará utilizando el algoritmo especificado. Presionar enter creará la clave con el nombre y ubicación por defecto.
+
+Después se te pedirá que ingreses una passphrase. En este caso lo dejaremos en blanco. Le damos a enter hasta terminar la ejecución del comando. Este paso se repetirá para cada llave.
+
+### Configurar el agente ssh
+
+El agente es responsable de gestionar las llaves para utilizarlos en los repositorios locales. Estas llaves se configurar por hosts.
+
+Lo primero que debemos hacer es crear el archivo `config` para el agente ssh. En este archivo definiremos los host y la llave que utilizará cada uno de estos.
+
+Para comenzar a crear o editar el archivo config utilizaremos el siguiente comando
+
+```
+vim ~/.ssh/config
+```
+
+Dentro de este comando ingresaremos la siguiente información
+
+```
+Host github-personal
+  HostName github.com
+  AddKeysToAgent yes
+  IdentityFile ~/.ssh/personal
+
+Host github-work
+  HostName github.com
+  AddKeysToAgent yes
+  IdentityFile ~/.ssh/work
+```
+
+El texto define los dos hosts github-personal y github-work. Cada uno de estos host tiene un HostName que en este caso es github.com. AddKeysToAgent indica que se agregue las llaves al agente y el IdentityFile es la ubicación donde se encuentra la llave privada.
+
+De esta forma le especificamos al agente cuales son los host y las llaves. github-personal sera para cuando queremos utilizar nuestra llave para acceder a los repositorios remotos personales y de la misma forma para el github-work host para los repositorios del trabajo.
+
+Continuando iniciamos el agente ssh en segundo plano.
+
+```
+eval "$(ssh-agent -s)"
+```
+
+Para finalizar especificamos al agente las llaves que acabamos de crear.
+
+```
+ssh-add ~/.ssh/work
+```
+
+```
+ssh-add ~/.ssh/personal
+```
+
+### Configurar el git config
+
+En el directorio home crea el archivo .gitconfig.personal y agrega la siguiente información.
+
+```
+[user]
+	name = your_name
+	email = your_personal_email
+```
+
+En el directorio home crea el archivo .gitconfig.work y agrega la siguiente información.
+
+```
+[user]
+	name = your_email
+	email = your_work_email
+```
+
+Crea el archivo .gitconfig para utilizar la información de estos archivos de acuerdo a la carpeta en la que se esta trabajando.
+
+```
+[include]
+  path = personal.gitconfig
+[includeIf "gitdir:~/Documents/work/repos"]
+  path = work.gitconfig
+```
+
+### Agregar las llaves a github
+
+El último paso es agregar las llaves a las cuentas de github. Para esto primero debemos copiar las llaves.
+
+```
+cat ~/.ssh/work.pub
+```
+
+Este comando mostrará la llave publica la cuál se tendrá que copiar.
+
+Continuando ingresamos a la cuenta de github en este caso de la cuenta de trabajo nos dirigimos a Settings > SSH and GPG keys. Le damos a "New SSH key". Esto nos abrirá una nueva vista donde especificaremos un nombre para la llave y pegaremos la llave publica. Guardamos los cambios y ya estarían funcionando. Repetimos el mismo proceso para la otra llave y ya estaríamos listo.
+
+##### Utilizar llaves localmente
+
+Para utilizar las llaves que generamos deberemos especificar el host cada vez que definamos la url. Por ejemplo si antes teníamos la siguiente url:
+
+```
+git@github.com:username/repo_name
+```
+
+ahora seria
+
+```
+git@github-work:username/repo_name
+```
+
+De esta forma utilizamos elegimos que llave utilizar.
+
+### Información adicional
+
+#### Name y Email de git config
+
+El nombre y email se configurara automáticamente dependiendo de la carpeta en la que nos localizamos.
+
+#### Troubleshoot
+
+Para ver si el nombre y email están configurados correctamente en el git:
+
+```
+git config user.name
+```
+
+```
+git config user.email
+```
+
+Para ver el host que se esta utilizando para el repositorio remoto
+
+```
+git remote -v
+```
+
+Para cambiar el remote origin del repositorio
+
+```
+git remote set-url origin url
+```
+
+Para ver la configuración de git
+
+```
+git config --list
+```
+
+Para ver las llaves ssh del ssh-agent
+
+```
+ssh-add -l
+```
+
+Para eliminar todas las llaves de ssh-agent
+
+```
+ssh-add -D
+```
